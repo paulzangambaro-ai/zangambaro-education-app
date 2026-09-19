@@ -11,4 +11,5 @@ Android educational app for South Sudan secondary students.
 The included GitHub Actions workflow builds a debug APK on every push to `main`/`master` and on manual dispatch. The APK is published as a workflow artifact.
 
 ## Local Android build
-Requires JDK 17, Android SDK 35 and Gradle 8.7.
+- name: Set up Android SDK
+  uses: android-actions/setup-android@v4
