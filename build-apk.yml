@@ -1,0 +1,104 @@
+name: Build Zangambaro Education APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Show repository
+        run: |
+          echo "===== REPOSITORY ====="
+          pwd
+          echo ""
+          echo "===== TOP LEVEL ====="
+          ls -la
+          echo ""
+          echo "===== PROJECT FILES ====="
+          find . -maxdepth 5 -type f \( \
+            -name "settings.gradle" -o \
+            -name "settings.gradle.kts" -o \
+            -name "build.gradle" -o \
+            -name "build.gradle.kts" -o \
+            -name "gradlew" \
+          \) -print
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Find Android Gradle project
+        id: project
+        shell: bash
+        run: |
+          set -e
+
+          PROJECT=""
+
+          while IFS= read -r file; do
+            DIR="$(dirname "$file")"
+
+            if [ -f "$DIR/settings.gradle" ] || \
+               [ -f "$DIR/settings.gradle.kts" ]; then
+              PROJECT="$DIR"
+              break
+            fi
+          done < <(find . -type f \( \
+            -name "settings.gradle" -o \
+            -name "settings.gradle.kts" \
+          \) -print)
+
+          if [ -z "$PROJECT" ]; then
+            echo "ERROR: Android Gradle project was not found."
+            echo ""
+            echo "Repository contents:"
+            find . -maxdepth 5 -type f -print
+            exit 1
+          fi
+
+          echo "Android Gradle project found:"
+          echo "$PROJECT"
+
+          echo "project=$PROJECT" >> "$GITHUB_OUTPUT"
+
+      - name: Build Debug APK
+        working-directory: ${{ steps.project.outputs.project }}
+        shell: bash
+        run: |
+          set -e
+
+          echo "Building from:"
+          pwd
+
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            ./gradlew --no-daemon assembleDebug
+          else
+            echo "No gradlew found. Using installed Gradle."
+            gradle --no-daemon assembleDebug
+          fi
+
+      - name: Locate APK
+        run: |
+          echo "===== APK SEARCH ====="
+          find . -type f -name "*.apk" -print
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Zangambaro-Education-APK
+          path: "**/build/outputs/apk/debug/*.apk"
+          if-no-files-found: error
